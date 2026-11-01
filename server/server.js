@@ -17,13 +17,16 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
 }
 
 const app = express();
-const allowedOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:5173").split(",").map((origin) => origin.trim());
+const allowedOrigins = new Set((process.env.CLIENT_ORIGIN || "http://localhost:5173").split(",").map((origin) => origin.trim()));
+for (const deploymentHost of [process.env.VERCEL_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL]) {
+  if (deploymentHost) allowedOrigins.add(`https://${deploymentHost}`);
+}
 app.disable("x-powered-by");
 if (process.env.NODE_ENV === "production") app.set("trust proxy", 1);
 app.use(helmet());
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    if (!origin || allowedOrigins.has(origin)) return callback(null, true);
     return callback(new Error("Origin is not allowed by CORS."));
   },
   credentials: true

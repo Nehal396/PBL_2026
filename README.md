@@ -144,7 +144,7 @@ Set `MONGODB_URI` in `server/.env` to your Atlas connection string and replace `
 | `CLIENT_ORIGIN` | server | Exact frontend origin; comma-separated origins are supported |
 | `ADMIN_EMAIL` | server, optional | Admin email to provision when running the seed script |
 | `ADMIN_PASSWORD` | server, optional | Admin password (12+ characters, no more than 72 UTF-8 bytes); never commit or publish it |
-| `VITE_API_URL` | client | Browser-visible API URL ending with `/api/v1` |
+| `VITE_API_URL` | client, optional | Browser-visible API URL ending with `/api/v1`; defaults to the same-origin `/api/v1` route |
 
 The MongoDB URI and JWT secret must never be placed in a `VITE_` variable or sent to the browser.
 
@@ -211,20 +211,14 @@ Do not report manual test outcomes until you execute and record them. Automated 
 4. Copy the application connection string, replace the username/password/database placeholders, and store it as the backend `MONGODB_URI` environment variable.
 5. Never put the URI in client environment variables, screenshots, source control, or public logs.
 
-### Render backend
+### Vercel multi-service project
 
-1. Create a Render Web Service from the repository.
-2. Set **Root Directory** to `server`, **Build Command** to `npm install`, and **Start Command** to `npm start`.
-3. Set `NODE_ENV=production`, `MONGODB_URI`, a new random `JWT_SECRET` (32+ characters), and `CLIENT_ORIGIN` to the exact deployed Vercel origin (scheme and hostname, no trailing slash). Include separate comma-separated origins only when needed.
-4. Optionally add `ADMIN_EMAIL` and `ADMIN_PASSWORD` for a controlled seed invocation; remove the password once the account is provisioned. The seed can be run in a Render shell with `npm run seed`.
-5. Open `https://<render-service>/health`, then review Render service logs if startup, Atlas connectivity, transaction support, or CORS fails.
-
-### Vercel frontend
-
-1. Import the repository in Vercel and set **Root Directory** to `client`.
-2. Set `VITE_API_URL=https://<render-service>/api/v1`, build command `npm run build`, and output directory `dist`. `client/vercel.json` rewrites client-side routes to the SPA entry point.
-3. Deploy, then update the Render `CLIENT_ORIGIN` value to the exact Vercel domain and redeploy/restart the API.
-4. Test login, refresh persistence, logout, a provider edit, and booking submission in the deployed browser. Production cookies require HTTPS, cross-site `SameSite=None; Secure`, credentials-enabled CORS, and the CSRF request header.
+1. Import the repository in Vercel and keep the repository root as the project root. The root `vercel.json` defines the `client` Vite service and `server` Express service.
+2. Set `MONGODB_URI`, a new random `JWT_SECRET` (32+ characters), and `NODE_ENV=production` in the Vercel project's environment variables. Do not define `VITE_API_URL` for the deployment unless using a different API origin; the client defaults to `/api/v1`.
+3. `/api/*` and `/health` route to the server service; all other paths route to the client service. The existing `client/vercel.json` fallback serves the SPA for client-side routes. The API has no calls to the client or other services, so no service bindings are needed.
+4. Vercel deployment and production origins are allowed by the API's CORS allowlist automatically. Set `CLIENT_ORIGIN` to a comma-separated list only when additional custom origins must be allowed.
+5. To run the services together locally, use `vercel dev`. For the existing independent development servers, the Vite proxy forwards `/api` and `/health` to `http://localhost:5000`.
+6. Verify `https://<deployment>/health`, then test login, refresh persistence, logout, a provider edit, and booking submission in the deployed browser. Production cookies require HTTPS and the CSRF request header.
 
 ## Current limitations and future enhancements
 
